@@ -27,7 +27,7 @@ class IssSpeed:
         timeDiff = time2 - time1
 
         self.timeDiff = timeDiff.seconds
-        return timeDiff.seconds
+        return self.timeDiff
 
 
     def getKeypoints(self, featureNum=1000):
@@ -45,7 +45,45 @@ class IssSpeed:
         matches = bruteForce.match(self.descriptors1, self.descriptors2)
         self.matches = sorted(matches, key=lambda x: x.distance)
 
-        return self.matches
+
+        # get coordinates
+        self.coordinates1 = []
+        self.coordinates2 = []
+
+        for match in self.matches:
+            img1Idx = match.queryIdx
+            img2Idx = match.trainIdx
+
+            (x1,y1) = self.keypoints1[img1Idx].pt
+            (x2,y2) = self.keypoints2[img2Idx].pt
+
+            self.coordinates1.append((x1, y1))
+            self.coordinates2.append((x2, y2))
+
+        return self.coordinates1[0], self.coordinates2[0]
+    
+
+    def calculateDist(self):
+        allDistances = 0
+        mergedCoordinates = list(zip(self.coordinates1, self.coordinates2))
+
+        for coordinates in mergedCoordinates:
+            xDiff = coordinates[0][0] - coordinates[1][0]
+            yDiff = coordinates[0][1] - coordinates[1][1]
+            distance = math.hypot(xDiff, yDiff)
+            allDistances = allDistances + distance
+        
+        self.distance = allDistances / len(mergedCoordinates)
+        return self.distance
+
+
+    def calculateSpeed(self, gsd=12648):
+        realDistance = self.distance * gsd / 100000 # distance px * gsd (px to cm) / 100 000 (cm to km)
+        self.speed = realDistance / self.timeDiff
+        return self.speed
+
+
+
     
     def displayMatches(self):
         matchImg = cv2.drawMatches(self.img1Cv, self.keypoints1, self.img2Cv, self.keypoints2, self.matches[:100], None)
@@ -56,7 +94,12 @@ class IssSpeed:
 
 
 
-imgPair1 = IssSpeed('test/img1.jpg', 'test/img2.jpg')
+imgPair1 = IssSpeed('test/img3.jpg', 'test/img4.jpg')
 imgPair1.getTimeDifference()
 imgPair1.getKeypoints()
+imgPair1.calculateDist()
+imgPair1.calculateSpeed()
+
+print(imgPair1.speed)
+
 imgPair1.displayMatches()
