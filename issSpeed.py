@@ -82,7 +82,29 @@ class IssSpeed:
         self.speed = realDistance / self.timeDiff
         return self.speed
 
+    
+    def calculateCloudsPercentage(self):
+        # 4056 x 3040  12 330 240
+        # self.clouds = cv2.countNonZero(self.img1Cv) / 123302.4
 
+        ret, threshImg = cv2.threshold(self.img1Cv, 182, 255, cv2.THRESH_BINARY)
+
+
+        self.clouds = cv2.countNonZero(threshImg) / 123302.4
+
+        # test
+        # print(self.clouds)
+
+        # img1resized = cv2.resize(self.img1Cv, (1014, 760))
+        # threshImg = cv2.resize(threshImg, (1014, 760))
+
+        # cv2.imshow('image', threshImg)
+        # cv2.imshow('img1', img1resized)
+        # cv2.waitKey(0)
+        # cv2.destroyWindow('image')
+        # cv2.destroyWindow('img1')
+
+        return self.clouds
 
     
     def displayMatches(self):

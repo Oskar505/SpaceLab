@@ -21,7 +21,7 @@ def countData(imgNum, imgPath, lastImgPath):
     imgPair.getKeypoints()
     imgPair.calculateDist()
     speed = imgPair.calculateSpeed()
-    clouds = 0
+    clouds = imgPair.calculateCloudsPercentage()
 
 
     return {'speed':speed, 'clouds':clouds, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId}
@@ -37,7 +37,7 @@ testImages = []
 unixTime = int(time.time())
 
 
-for imgNum in range(7):
+for imgNum in range(9):
     imgPath = takePhoto(imgNum)
 
     # counting from 0, so pairs will be odd
@@ -51,7 +51,7 @@ for imgNum in range(7):
         # count average
         averageSpeed = sum(speedsList) / len(speedsList) 
 
-        print(f"average: {averageSpeed}, speed: {result['speed']}")
+        print(f"average: {averageSpeed}, speed: {result['speed']}, clouds: {result['clouds']}%")
     
 
     lastImgPath = imgPath
