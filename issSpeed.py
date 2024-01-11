@@ -94,12 +94,12 @@ class IssSpeed:
 
 
 
-imgPair1 = IssSpeed('test/img3.jpg', 'test/img4.jpg')
-imgPair1.getTimeDifference()
-imgPair1.getKeypoints()
-imgPair1.calculateDist()
-imgPair1.calculateSpeed()
+# imgPair1 = IssSpeed('test/img3.jpg', 'test/img4.jpg')
+# imgPair1.getTimeDifference()
+# imgPair1.getKeypoints()
+# imgPair1.calculateDist()
+# imgPair1.calculateSpeed()
 
-print(imgPair1.speed)
+# print(imgPair1.speed)
 
-imgPair1.displayMatches()
+# imgPair1.displayMatches()
