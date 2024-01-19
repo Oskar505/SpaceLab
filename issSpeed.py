@@ -1,7 +1,9 @@
+from importlib.abc import ResourceLoader
 from exif import Image
 from datetime import datetime
 import cv2
 import math
+import numpy as np
 
 
 class IssSpeed:
@@ -10,7 +12,7 @@ class IssSpeed:
         self.img2 = img2
 
 
-    def getTimeDifference(self):
+    def calculateSpeed(self, featureNum=1000, gsd=12648):
         # get time data
         with open(self.img1, 'rb') as imageFile:
             imgObj = Image(imageFile)
@@ -27,10 +29,7 @@ class IssSpeed:
         timeDiff = time2 - time1
 
         self.timeDiff = timeDiff.seconds
-        return self.timeDiff
 
-
-    def getKeypoints(self, featureNum=1000):
         # images to cv object
         self.img1Cv = cv2.imread(self.img1, 0)
         self.img2Cv = cv2.imread(self.img2, 0)
@@ -60,10 +59,7 @@ class IssSpeed:
             self.coordinates1.append((x1, y1))
             self.coordinates2.append((x2, y2))
 
-        return self.coordinates1[0], self.coordinates2[0]
     
-
-    def calculateDist(self):
         allDistances = 0
         mergedCoordinates = list(zip(self.coordinates1, self.coordinates2))
 
@@ -74,37 +70,62 @@ class IssSpeed:
             allDistances = allDistances + distance
         
         self.distance = allDistances / len(mergedCoordinates)
-        return self.distance
 
 
-    def calculateSpeed(self, gsd=12648):
+    
         realDistance = self.distance * gsd / 100000 # distance px * gsd (px to cm) / 100 000 (cm to km)
         self.speed = realDistance / self.timeDiff
+
+
         return self.speed
 
     
-    def calculateCloudsPercentage(self):
-        # 4056 x 3040  12 330 240
-        # self.clouds = cv2.countNonZero(self.img1Cv) / 123302.4
+    def calculateUnusablePercentage(self, debug=False):
+        # 4056 x 3040 = 12 330 240
 
-        ret, threshImg = cv2.threshold(self.img1Cv, 182, 255, cv2.THRESH_BINARY)
+        # count clouds
+        ret, cloudsThreshImg = cv2.threshold(self.img1Cv, 182, 255, cv2.THRESH_BINARY)
+        self.clouds = cv2.countNonZero(cloudsThreshImg) / 123302.4
 
 
-        self.clouds = cv2.countNonZero(threshImg) / 123302.4
+        # count water
+        rgbImage1Cv = cv2.imread(self.img1)
 
-        # test
-        # print(self.clouds)
+        # Convert BGR to HSV
+        hsv = cv2.cvtColor(rgbImage1Cv, cv2.COLOR_BGR2HSV)
 
-        # img1resized = cv2.resize(self.img1Cv, (1014, 760))
-        # threshImg = cv2.resize(threshImg, (1014, 760))
+        # define range of blue color in cv2's HSV (255 is max)
+        lower_blue = np.array([110,53,112])
+        upper_blue = np.array([130,255,255])
 
-        # cv2.imshow('image', threshImg)
-        # cv2.imshow('img1', img1resized)
-        # cv2.waitKey(0)
-        # cv2.destroyWindow('image')
-        # cv2.destroyWindow('img1')
+        # Threshold the HSV image to get only blue colors
+        mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-        return self.clouds
+        # use mask on image
+        result = cv2.bitwise_and(rgbImage1Cv, rgbImage1Cv, mask=mask)
+
+        self.water = 0
+
+
+        # debug
+        if debug:
+            print(self.clouds)
+
+            img1resized = cv2.resize(rgbImage1Cv, (1014, 760))
+            maskResized = cv2.resize(mask, (1014, 760))
+            resultResized = cv2.resize(result, (1014, 760))
+
+            cv2.imshow('img1', img1resized)
+            cv2.imshow('image', resultResized)
+            # cv2.imshow('mask', maskResized)
+            cv2.waitKey(0)
+            cv2.destroyWindow('image')
+            cv2.destroyWindow('img1')
+            cv2.destroyWindow('mask')
+        
+
+
+        return (self.clouds, self.water)
 
     
     def displayMatches(self):

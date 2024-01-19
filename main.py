@@ -15,16 +15,13 @@ def takePhoto(imgNum):
 def countData(imgNum, imgPath, lastImgPath):
     pairId = imgNum / 2
 
-    # get speed and cluds data
+    # get speed and unusable parts data
     imgPair = IssSpeed(lastImgPath, imgPath)
-    imgPair.getTimeDifference()
-    imgPair.getKeypoints()
-    imgPair.calculateDist()
     speed = imgPair.calculateSpeed()
-    clouds = imgPair.calculateCloudsPercentage()
+    clouds, water = imgPair.calculateUnusablePercentage()
 
 
-    return {'speed':speed, 'clouds':clouds, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId}
+    return {'speed':speed, 'clouds':clouds, 'water':water, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId}
 
 
 
@@ -33,11 +30,12 @@ lastImgPath = ''
 results = []
 speedsList = []
 cloudsList = []
+waterList = []
 testImages = []
 unixTime = int(time.time())
 
 
-for imgNum in range(9):
+for imgNum in range(10):
     imgPath = takePhoto(imgNum)
 
     # counting from 0, so pairs will be odd
@@ -47,11 +45,12 @@ for imgNum in range(9):
         
         speedsList.append(result['speed'])
         cloudsList.append(result['clouds'])
+        waterList.append(result['water'])
 
         # count average
         averageSpeed = sum(speedsList) / len(speedsList) 
 
-        print(f"average: {averageSpeed}, speed: {result['speed']}, clouds: {result['clouds']}%")
+        print(f"average: {averageSpeed}, speed: {result['speed']}, clouds: {result['clouds']}%, water: {result['water']}%")
     
 
     lastImgPath = imgPath
