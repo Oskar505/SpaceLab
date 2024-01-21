@@ -6,7 +6,7 @@ import time
 def takePhoto(imgNum):
     # take photo with picamera
     # save it
-    imgPath = f'test/img{imgNum}.jpg'
+    imgPath = f'test/img/img{imgNum}.jpg'
 
     return imgPath
 
@@ -35,7 +35,7 @@ testImages = []
 unixTime = int(time.time())
 
 
-for imgNum in range(10):
+for imgNum in range(16):
     imgPath = takePhoto(imgNum)
 
     # counting from 0, so pairs will be odd
