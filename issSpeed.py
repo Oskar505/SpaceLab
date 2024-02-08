@@ -59,18 +59,38 @@ class IssSpeed:
             self.coordinates1.append((x1, y1))
             self.coordinates2.append((x2, y2))
 
-    
+
+        distanceList = []
         allDistances = 0
         mergedCoordinates = list(zip(self.coordinates1, self.coordinates2))
 
         for coordinates in mergedCoordinates:
             xDiff = coordinates[0][0] - coordinates[1][0]
             yDiff = coordinates[0][1] - coordinates[1][1]
+
             distance = math.hypot(xDiff, yDiff)
+            distanceList.append(distance)
+
             allDistances = allDistances + distance
         
+
         self.distance = allDistances / len(mergedCoordinates)
 
+
+        # Standard deviation
+        filteredDistances = []
+
+        # count first st. dev
+        standardDeviation, avg = self.countStDev(distanceList)
+
+        # filter numbers
+        for number in distanceList:
+            if abs(avg - number) < standardDeviation:
+                filteredDistances.append(number)
+
+
+        # count second st. dev from filtered numbers
+        self.filteredStandardDeviation, self.filteredAvg = self.countStDev(filteredDistances)
 
     
         realDistance = self.distance * gsd / 100000 # distance px * gsd (px to cm) / 100 000 (cm to km)
@@ -134,6 +154,23 @@ class IssSpeed:
         cv2.imshow('matches', resize)
         cv2.waitKey(0)
         cv2.destroyWindow('matches')
+        
+
+
+    def countStDev(self, numbers):
+        avg = math.fsum(numbers) / len(numbers)
+        squareSum = 0
+
+        # count square sum
+        for number in numbers:
+            squareSum = squareSum + abs(number - avg)**2
+
+        var = (1/len(numbers)) * squareSum # count var
+
+        standardDeviation = math.sqrt(var) # count st. deviation
+
+
+        return standardDeviation, avg
 
 
 

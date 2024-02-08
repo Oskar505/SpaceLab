@@ -1,7 +1,14 @@
 test/img
 test/getColor.py
 settings.json
+test/bad/*
+test/ok/*
+test/good/*
+test/imgDataset/*
+test/exifError/
+test/imagesWithData/*
 
+test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

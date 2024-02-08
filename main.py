@@ -6,7 +6,7 @@ import time
 def takePhoto(imgNum):
     # take photo with picamera
     # save it
-    imgPath = f'test/img{imgNum}.jpg'
+    imgPath = f'test/img/img{imgNum}.jpg'
 
     return imgPath
 
@@ -21,7 +21,7 @@ def countData(imgNum, imgPath, lastImgPath):
     clouds, water = imgPair.calculateUnusablePercentage()
 
 
-    return {'speed':speed, 'clouds':clouds, 'water':water, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId}
+    return {'speed':speed, 'clouds':clouds, 'water':water, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId, 'standardDeviation':imgPair.filteredStandardDeviation}
 
 
 
@@ -50,7 +50,7 @@ for imgNum in range(10):
         # count average
         averageSpeed = sum(speedsList) / len(speedsList) 
 
-        print(f"average: {averageSpeed}, speed: {result['speed']}, clouds: {result['clouds']}%, water: {result['water']}%")
+        print(f"average: {averageSpeed}, speed: {result['speed']}, clouds: {result['clouds']}%, dev: {result['standardDeviation']}")
     
 
     lastImgPath = imgPath
