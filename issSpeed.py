@@ -1,11 +1,11 @@
 from importlib.abc import ResourceLoader
-from itertools import count
 from exif import Image
 from datetime import datetime
 import cv2
 import math
 import numpy as np
-
+from collections import Counter
+import matplotlib.pyplot as plt
 
 
 class IssSpeed:
@@ -14,34 +14,30 @@ class IssSpeed:
         self.img2 = img2
 
 
-    def calculateSpeed(self, featureNum=1000, gsd=12648, debug=False):
+    def calculateSpeed(self, featureNum=1000, gsd=12648):
         # images to cv object
         self.img1Cv = cv2.imread(self.img1, 0)
         self.img2Cv = cv2.imread(self.img2, 0)
-
+        
 
         # get time data
-        with open(self.img1, 'rb') as imageFile:
-            imgObj = Image(imageFile)
-            try:
+        try:
+            with open(self.img1, 'rb') as imageFile:
+                imgObj = Image(imageFile)
                 timeStr = imgObj.get('datetime_original')
-
-            except KeyError as e:
-                print(f"Exif data loading error {self.img1}: {e}")
-                return "Exif reading error"
-
-            time1 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
+                time1 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
         
-        with open(self.img2, 'rb') as imageFile:
-            imgObj = Image(imageFile)
-            try:
+        except KeyError:
+            return 'Exif error'
+        
+        try:
+            with open(self.img2, 'rb') as imageFile:
+                imgObj = Image(imageFile)
                 timeStr = imgObj.get('datetime_original')
-
-            except KeyError as e:
-                print(f"Exif data loading error {self.img2}: {e}")
-                return "Exif reading error"
-            
-            time2 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
+                time2 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
+        
+        except KeyError:
+            return 'Exif error'
 
 
         # count time difference
@@ -49,32 +45,34 @@ class IssSpeed:
 
         self.timeDiff = timeDiff.seconds
 
-
-
         # get features
         orb = cv2.ORB_create(nfeatures = featureNum)
         self.keypoints1, self.descriptors1 = orb.detectAndCompute(self.img1Cv, None)
         self.keypoints2, self.descriptors2 = orb.detectAndCompute(self.img2Cv, None)
 
-        print(f'keypoints: {len(self.keypoints1)}')
+
+        # keypoints importance
+        responseSum = 0
+        responseList = []
+
+
+        for kp in self.keypoints1:
+            responseSum = responseSum + kp.response
+            responseList.append(kp.response)
+
+            if kp.response > 0.0002:
+                ''
+                # print(f"Response: {kp.response}")
+
+        self.avgKpResponse = responseSum / len(self.keypoints1)
+        self.maxKpResponse = max(responseList)
+
+
 
         # get matches
         bruteForce = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         matches = bruteForce.match(self.descriptors1, self.descriptors2)
         self.matches = sorted(matches, key=lambda x: x.distance)
-
-        print(f'{len(self.matches)} matches')
-
-        # error, not enough matches
-        if len(self.matches) < 40:
-            print(f'Only {len(self.matches)} matches')
-            # TODO: only for data on images
-            # return f'Not enough matches error, only {len(self.matches)}'
-        
-
-        #TODO: filter matches
-
-
 
 
         # get coordinates
@@ -91,17 +89,94 @@ class IssSpeed:
             self.coordinates1.append((x1, y1))
             self.coordinates2.append((x2, y2))
 
-    
+
+        distanceList = []
+        self.matchData = []
+        self.angleData = {}
         allDistances = 0
         mergedCoordinates = list(zip(self.coordinates1, self.coordinates2))
 
         for coordinates in mergedCoordinates:
             xDiff = coordinates[0][0] - coordinates[1][0]
             yDiff = coordinates[0][1] - coordinates[1][1]
+
+            # Match angle
+            angle_rad = math.atan2(yDiff, xDiff)
+            angleDeg = round(math.degrees(angle_rad) % 360)
+
+            # Distance
             distance = math.hypot(xDiff, yDiff)
+            distanceList.append(distance)
+
             allDistances = allDistances + distance
-        
-        self.distance = allDistances / len(mergedCoordinates) # average
+
+
+            # append data
+            # self.matchData.append({'angle':round(math.degrees(angle_rad) % 360), 'distance':distance})
+
+            if angleDeg in self.angleData:
+                self.angleData[angleDeg]['count'] += 1
+                self.angleData[angleDeg]['totalDist'] += distance
+                self.angleData[angleDeg]['distanceList'].append(distance)
+            
+            else:
+                self.angleData[angleDeg] = {'count': 1, 'totalDist': distance, 'distanceList':[distance]}
+
+
+
+
+        # Angles
+        self.largestGroup = max(self.angleData.items(), key=lambda x: x[1]['count'])
+        self.largestGroupPercentage = (self.largestGroup[1]['count'] / len(self.matches)) # 1 = 100%
+        angleSelectedDist = self.largestGroup[1]['totalDist'] / self.largestGroup[1]['count']
+        self.selectedDistanceList = self.largestGroup[1]['distanceList']
+
+        realDistance = angleSelectedDist * gsd / 100000 # distance px * gsd (px to cm) / 100 000 (cm to km)
+        self.angleSelectedSpeed = realDistance / self.timeDiff
+
+
+
+        # print('XXXXXXXXXXXXXXXXXXXXXXXXX')
+        # print(self.largestGroup)
+        # print(len(self.matches))
+        # print(self.largestGroupPercentage)
+
+
+        # angleGroups = Counter(self.matchData['angle'])
+
+        # angles = list(self.angleData.keys())
+        # counts = list(item['count'] for item in self.angleData.values())
+
+        # # Vykresli histogram
+        # plt.bar(angles, counts, color='blue', edgecolor='black')
+
+        # # Přidáme popisky os a název grafu
+        # plt.xlabel('Úhly')
+        # plt.ylabel('Početnost')
+        # plt.title('Histogram úhlů')
+
+        # # Zobraz histogram
+        # plt.show()
+
+
+
+        self.distance = allDistances / len(mergedCoordinates)
+
+
+        # Standard deviation
+        filteredDistances = []
+
+        # count first st. dev
+        self.standardDeviation, avg = self.countStDev(distanceList)
+
+        # filter numbers
+        for number in distanceList:
+            if abs(avg - number) < self.standardDeviation:
+                filteredDistances.append(number)
+
+
+        # count second st. dev from filtered numbers
+        self.filteredStandardDeviation, self.filteredAvg = self.countStDev(filteredDistances)
 
 
     
@@ -109,17 +184,34 @@ class IssSpeed:
         self.speed = realDistance / self.timeDiff
 
 
-        # TODO: only for writing data on images
+        # filtered by st dev
+        realDistance = self.filteredAvg * gsd / 100000 # distance px * gsd (px to cm) / 100 000 (cm to km)
+        self.devSpeed = realDistance / self.timeDiff
+
+
+        # FILTERED SPEED
+        filteredDistances = []
+
+        # count first st. dev
+        self.standardDeviation, avg = self.countStDev(self.selectedDistanceList)
+
+        # filter numbers
+        for number in distanceList:
+            if abs(avg - number) < self.standardDeviation:
+                filteredDistances.append(number)
+
+
+        # count second st. dev from filtered numbers
+        filteredStandardDeviation, self.filteredAvg = self.countStDev(filteredDistances)
+
+        realDistance = self.filteredAvg * gsd / 100000 # distance px * gsd (px to cm) / 100 000 (cm to km)
+        self.filteredSpeed = realDistance / self.timeDiff
+
+
+        # match img
         matchImg = cv2.drawMatches(self.img1Cv, self.keypoints1, self.img2Cv, self.keypoints2, self.matches[:100], None)
-        self.resizedMatch = cv2.resize(matchImg, (1600, 600), interpolation = cv2.INTER_AREA)
+        self.resizedMatches = cv2.resize(matchImg, (1600, 600), interpolation = cv2.INTER_AREA)
 
-        if debug:
-            print(f"speed: {self.speed}")
-            print(f"img: {self.img1}")
-
-            cv2.imshow('matches', self.resizedMatch)
-            cv2.waitKey(0)
-            cv2.destroyWindow('matches')
 
 
         return self.speed
@@ -129,10 +221,9 @@ class IssSpeed:
         # 4056 x 3040 = 12 330 240
 
         # count clouds
-        threshold = 182
-
-        ret, cloudsThreshImg = cv2.threshold(self.img1Cv, threshold, 255, cv2.THRESH_BINARY)
+        ret, cloudsThreshImg = cv2.threshold(self.img1Cv, 182, 255, cv2.THRESH_BINARY)
         self.clouds = cv2.countNonZero(cloudsThreshImg) / 123302.4
+        self.resizedClouds = cv2.resize(cloudsThreshImg, (1014, 760))
 
 
         # count water
@@ -154,24 +245,19 @@ class IssSpeed:
         self.water = 0
 
 
-        # TODO: only for writing data on images
-        self.resizedClouds = cv2.resize(cloudsThreshImg, (1014, 760))
-
         # debug
         if debug:
-            print(f"clouds {self.clouds}")
+            print(self.clouds)
 
             img1resized = cv2.resize(rgbImage1Cv, (1014, 760))
             maskResized = cv2.resize(mask, (1014, 760))
             resultResized = cv2.resize(result, (1014, 760))
 
             cv2.imshow('img1', img1resized)
-            cv2.imshow('clouds', self.resizedClouds)
-            # cv2.imshow('image', resultResized)
+            cv2.imshow('image', resultResized)
             # cv2.imshow('mask', maskResized)
             cv2.waitKey(0)
             cv2.destroyWindow('image')
-            cv2.destroyWindow('clouds')
             cv2.destroyWindow('img1')
             cv2.destroyWindow('mask')
         
@@ -186,6 +272,28 @@ class IssSpeed:
         cv2.imshow('matches', resize)
         cv2.waitKey(0)
         cv2.destroyWindow('matches')
+        
+
+
+    def countStDev(self, numbers):
+        if len(numbers) != 0:
+            avg = math.fsum(numbers) / len(numbers)
+            squareSum = 0
+
+            # count square sum
+            for number in numbers:
+                squareSum = squareSum + abs(number - avg)**2
+
+            var = (1/len(numbers)) * squareSum # count var
+
+            standardDeviation = math.sqrt(var) # count st. deviation
+        
+        else:
+            standardDeviation = 0
+            avg = 0
+
+
+        return standardDeviation, avg
 
 
 

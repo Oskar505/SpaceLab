@@ -1,4 +1,3 @@
-from ast import Str
 import os
 import shutil
 from tokenize import String
@@ -7,6 +6,7 @@ from issSpeed import IssSpeed
 import time
 import cv2
 import numpy as np
+import textwrap
 
 
 
@@ -24,14 +24,14 @@ def countData(imgNum, imgPath, lastImgPath):
 
     # get speed and unusable parts data
     imgPair = IssSpeed(lastImgPath, imgPath)
-    speed = imgPair.calculateSpeed(debug=False)
+    speed = imgPair.calculateSpeed()
     clouds, water = imgPair.calculateUnusablePercentage(debug=False)
 
     if type(speed) == str and 'error' in speed:
         return {'speed':speed}
 
     else:
-        return {'speed':speed, 'clouds':clouds, 'water':water, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId, 'keypoints':len(imgPair.keypoints1), 'matches':len(imgPair.matches), 'matchesImg':imgPair.resizedMatch, 'cloudsImg':imgPair.resizedClouds}
+        return {'speed':speed, 'angleSpeed':imgPair.angleSelectedSpeed, 'devSpeed':imgPair.devSpeed, 'filteredSpeed':imgPair.filteredSpeed, 'deviation1':imgPair.standardDeviation, 'deviation2':imgPair.filteredStandardDeviation, 'largestAngleGroup':imgPair.largestGroup, 'largestAnglePercentage':imgPair.largestGroupPercentage, 'clouds':clouds, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId, 'keypoints':len(imgPair.keypoints1), 'matches':len(imgPair.matches), 'avgKpResponse':imgPair.avgKpResponse, 'maxKpResponse':imgPair.maxKpResponse, 'matchesImg':imgPair.resizedMatches, 'cloudsImg':imgPair.resizedClouds}
 
 
 
@@ -58,8 +58,13 @@ def writeDataOnImage(data, imgName, imgNum, matchesImg, cloudsImg, imgQuality, m
     # Vytvoření bílého pozadí pro text
     background = np.ones((text_size[1] + 10, text_size[0] + 10, 3), dtype=np.uint8) * background_color
 
-    # Vložení textu na bílé pozadí
-    cv2.putText(background, data, (5, text_size[1] + 5), font, font_size, font_color, font_thickness)
+    lines = textwrap.wrap(data, width=30)  # Rozdělení textu do dvou řádků
+    y = 30 + text_size[1]  # Y-ová pozice pro první řádek textu
+
+    for line in lines:
+        cv2.putText(img, line, (10, y), font, font_size, font_color, font_thickness)
+        y += int(text_size[1] * 1.5)  # Odstup mezi řádky
+
 
     # Získání rozměrů části obrázku pro vložení textu
     img_part = img[-background.shape[0]:, -background.shape[1]:]
@@ -70,8 +75,6 @@ def writeDataOnImage(data, imgName, imgNum, matchesImg, cloudsImg, imgQuality, m
     if img_part.shape[1] < background.shape[1]:
         background = background[:, :img_part.shape[1]]
 
-    # Vložení bílého pozadí s textem na obrázek
-    img[-background.shape[0]:, -background.shape[1]:] = background
 
 
 
@@ -131,12 +134,11 @@ for image in os.listdir(folder):
         
         speedsList.append(result['speed'])
         cloudsList.append(result['clouds'])
-        waterList.append(result['water'])
 
         # count average
         averageSpeed = sum(speedsList) / len(speedsList)
 
-        difference = 7.66 - result['speed']
+        difference = result['speed'] - 7.66
         print(difference)
 
         if abs(difference) < 0.5 and result['clouds'] < 15:
@@ -165,7 +167,16 @@ for image in os.listdir(folder):
             imgQuality = 'bad'
             print('bad ' + image)
 
-        resultReport = f"qual: {imgQuality}, spd: {round(result['speed'], 2)}, avg spd: {round(averageSpeed, 2)}, diff: {round(difference, 2)}, clds: {round(result['clouds'], 2)}%, kp: {result['keypoints']}, mt: {result['matches']}"
+        
+        # count differences
+        
+        angleDifference = result['angleSpeed'] - 7.66
+
+        devDifference = result['devSpeed'] - 7.66
+
+        filteredDifference = result['filteredSpeed'] - 7.66
+
+        resultReport = f"qual: {imgQuality}, spd: {round(result['speed'], 2)}, diff: {round(difference, 2)}, aSpd: {round(result['angleSpeed'], 2)}, diff: {round(angleDifference)}, dSpd: {round(result['devSpeed'], 2)}, diff: {round(devDifference, 2)}, fSpd: {round(result['filteredSpeed'])}, diff: {round(filteredDifference)}, clds: {round(result['clouds'], 2)}%, kp: {result['keypoints']}, mt: {result['matches']}, lag: {result['largestAngleGroup'][0]}, lagp: {round(result['largestAnglePercentage'], 2)}, dev1: {round(result['deviation1'], 2)}, dev2: {round(result['deviation2'], 2)}, akpr: {round(result['avgKpResponse'], 4)}, mkpr: {round(result['maxKpResponse'], 4)}"
         print(resultReport)
 
         writeDataOnImage(resultReport, image, imgNum, result['matchesImg'], result['cloudsImg'], imgQuality, result['matches'])

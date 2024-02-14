@@ -19,6 +19,7 @@ def countData(imgNum, imgPath, lastImgPath):
     imgPair = IssSpeed(lastImgPath, imgPath)
     speed = imgPair.calculateSpeed()
     clouds, water = imgPair.calculateUnusablePercentage()
+    # imgPair.displayMatches()
 
 
     return {'speed':speed, 'clouds':clouds, 'water':water, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId}
@@ -35,7 +36,7 @@ testImages = []
 unixTime = int(time.time())
 
 
-for imgNum in range(16):
+for imgNum in range(18):
     imgPath = takePhoto(imgNum)
 
     # counting from 0, so pairs will be odd
