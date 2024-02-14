@@ -4,6 +4,7 @@ from datetime import datetime
 import cv2
 import math
 import numpy as np
+import statistics
 
 
 class IssSpeed:
@@ -39,6 +40,17 @@ class IssSpeed:
         self.keypoints1, self.descriptors1 = orb.detectAndCompute(self.img1Cv, None)
         self.keypoints2, self.descriptors2 = orb.detectAndCompute(self.img2Cv, None)
 
+
+        # FILTER 1 - keypoints
+        self.descriptors1 = self.filterKeypoints(self.keypoints1, self.descriptors1)
+        
+        if not isinstance(self.descriptors1, np.ndarray):
+            return 'Error: not enough good keypoints - filter 1'
+        
+
+        # print(self.descriptors1)
+
+
         # get matches
         bruteForce = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         matches = bruteForce.match(self.descriptors1, self.descriptors2)
@@ -61,6 +73,7 @@ class IssSpeed:
 
 
         distanceList = []
+        self.angleData = {}
         allDistances = 0
         mergedCoordinates = list(zip(self.coordinates1, self.coordinates2))
 
@@ -72,19 +85,40 @@ class IssSpeed:
             distanceList.append(distance)
 
             allDistances = allDistances + distance
-        
+
+
+            # Angle
+            angle_rad = math.atan2(yDiff, xDiff)
+            angleDeg = round(math.degrees(angle_rad) % 360)
+
+            if angleDeg in self.angleData:
+                self.angleData[angleDeg]['count'] += 1
+                self.angleData[angleDeg]['totalDist'] += distance
+                self.angleData[angleDeg]['distanceList'].append(distance)
+            
+            else:
+                self.angleData[angleDeg] = {'count': 1, 'totalDist': distance, 'distanceList':[distance]}
+
+
+
+        # ANGLES
+        self.largestGroup = max(self.angleData.items(), key=lambda x: x[1]['count'])
+        self.largestGroupPercentage = (self.largestGroup[1]['count'] / len(self.matches)) # 1 = 100%
+        self.angleSelectedDist = self.largestGroup[1]['totalDist'] / self.largestGroup[1]['count'] # distance
+        self.selectedDistanceList = self.largestGroup[1]['distanceList']
+
 
         self.distance = allDistances / len(mergedCoordinates)
 
 
-        # Standard deviation
+        # STANDARD DEVIATION
         filteredDistances = []
 
         # count first st. dev
-        standardDeviation, avg = self.countStDev(distanceList)
+        standardDeviation, avg = self.countStDev(self.selectedDistanceList)
 
         # filter numbers
-        for number in distanceList:
+        for number in self.selectedDistanceList:
             if abs(avg - number) < standardDeviation:
                 filteredDistances.append(number)
 
@@ -97,9 +131,16 @@ class IssSpeed:
         self.speed = realDistance / self.timeDiff
 
 
+        # FILTER
+
+
+
+
         return self.speed
 
     
+
+
     def calculateUnusablePercentage(self, debug=False):
         # 4056 x 3040 = 12 330 240
 
@@ -147,6 +188,8 @@ class IssSpeed:
 
         return (self.clouds, self.water)
 
+
+
     
     def displayMatches(self):
         matchImg = cv2.drawMatches(self.img1Cv, self.keypoints1, self.img2Cv, self.keypoints2, self.matches[:100], None)
@@ -171,6 +214,56 @@ class IssSpeed:
 
 
         return standardDeviation, avg
+    
+
+
+
+    def filterKeypoints(self, keypoints, descriptors):
+        responseSum = 0
+        responseList = []
+        filteredDesc = []
+        responseNum = 0
+
+        for kp in keypoints:
+            responseSum = responseSum + kp.response
+            responseList.append(kp.response)
+
+
+        responseMedian = statistics.median(responseList)
+        avgKpResponse = responseSum / len(keypoints)
+        maxKpResponse = max(responseList)
+
+
+        print('XXXXXXXXXXXXXXX')
+        print(responseMedian)
+        print(avgKpResponse)
+        print(len(keypoints))
+
+
+        # low response
+        if responseMedian < 0.00005:
+            return False
+
+
+        # select good kp
+        for response in responseList:
+            if response >= responseMedian:
+                filteredDesc.append(descriptors[responseNum])
+            
+            responseNum += 1
+        
+
+        print(len(filteredDesc))
+        filteredDesc = np.array(filteredDesc)
+
+
+        # return only if enough
+        if len(filteredDesc) > 100:
+            return filteredDesc
+        
+        else:
+            return False
+                
 
 
 

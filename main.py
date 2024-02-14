@@ -18,10 +18,19 @@ def countData(imgNum, imgPath, lastImgPath):
     # get speed and unusable parts data
     imgPair = IssSpeed(lastImgPath, imgPath)
     speed = imgPair.calculateSpeed()
-    clouds, water = imgPair.calculateUnusablePercentage()
 
 
-    return {'speed':speed, 'clouds':clouds, 'water':water, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId, 'standardDeviation':imgPair.filteredStandardDeviation}
+    # Error
+    if isinstance(speed, str):
+        print(speed)
+        return False
+    
+    
+    # Ok
+    else:
+        clouds, water = imgPair.calculateUnusablePercentage()
+
+        return {'speed':speed, 'clouds':clouds, 'water':water, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId, 'standardDeviation':imgPair.filteredStandardDeviation}
 
 
 
@@ -43,15 +52,17 @@ for imgNum in range(10):
 
         result = countData(imgNum, imgPath, lastImgPath)
         
-        speedsList.append(result['speed'])
-        cloudsList.append(result['clouds'])
-        waterList.append(result['water'])
 
-        # count average
-        averageSpeed = sum(speedsList) / len(speedsList) 
+        if result != False:
+            speedsList.append(result['speed'])
+            cloudsList.append(result['clouds'])
+            waterList.append(result['water'])
 
-        print(f"average: {averageSpeed}, speed: {result['speed']}, clouds: {result['clouds']}%, dev: {result['standardDeviation']}")
-    
+            # count average
+            averageSpeed = sum(speedsList) / len(speedsList) 
+
+            print(f"average: {averageSpeed}, speed: {result['speed']}, clouds: {result['clouds']}%, dev: {result['standardDeviation']}")
+        
 
     lastImgPath = imgPath
 
