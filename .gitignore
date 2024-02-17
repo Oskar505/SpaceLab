@@ -5,6 +5,7 @@ test/bad/*
 test/ok/*
 test/good/*
 test/imgDataset/*
+test/dataset1/*
 test/exifError/
 test/imagesWithData/*
 

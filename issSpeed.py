@@ -6,34 +6,66 @@ import math
 import numpy as np
 import statistics
 
+# test
+import os
+
 
 class IssSpeed:
     def __init__(self, img1, img2):
         self.img1 = img1
         self.img2 = img2
 
+    def getAllExif(self):
+        from PIL import Image
+
+        # Otevřít obrázek
+        with open(self.img1, 'rb') as imageFile:
+            imgObj = Image.open(imageFile)
+
+            # Získat EXIF data
+            exif_data = imgObj.getexif()
+
+            # Vypsat všechna EXIF data
+            for tag, value in exif_data.items():
+                print(f"Tag: {tag}, Value: {value}")
+
 
     def calculateSpeed(self, featureNum=1000, gsd=12648):
         # get time data
-        with open(self.img1, 'rb') as imageFile:
-            imgObj = Image(imageFile)
-            timeStr = imgObj.get('datetime_original')
-            time1 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
+        try:
+            with open(self.img1, 'rb') as imageFile:
+                imgObj = Image(imageFile)
+                timeStr = imgObj.get('datetime_original')
+                time1 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
         
-        with open(self.img2, 'rb') as imageFile:
-            imgObj = Image(imageFile)
-            timeStr = imgObj.get('datetime_original')
-            time2 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
+            with open(self.img2, 'rb') as imageFile:
+                imgObj = Image(imageFile)
+                timeStr = imgObj.get('datetime_original')
+                time2 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
+        
+        except KeyError:
+            return 'Exif reading error'
 
 
         # count time difference
         timeDiff = time2 - time1
-
         self.timeDiff = timeDiff.seconds
+
+        if self.timeDiff == 0:
+            return "Time difference error: time difference can't be 0"
+
 
         # images to cv object
         self.img1Cv = cv2.imread(self.img1, 0)
         self.img2Cv = cv2.imread(self.img2, 0)
+
+        # check resolution
+        height1, width1 = self.img1Cv.shape
+        height2, width2 = self.img2Cv.shape
+
+        if width1 != 4056 or width2 != 4056 or height1 != 3040 or height2 != 3040:
+            return 'Image resolution error'
+
 
         # get features
         orb = cv2.ORB_create(nfeatures = featureNum)
@@ -42,10 +74,11 @@ class IssSpeed:
 
 
         # FILTER 1 - keypoints
-        self.descriptors1 = self.filterKeypoints(self.keypoints1, self.descriptors1)
+        # self.descriptors1 = self.filterKeypoints(self.keypoints1, self.descriptors1)
+        self.filterKeypoints(self.keypoints1, self.descriptors1)
         
-        if not isinstance(self.descriptors1, np.ndarray):
-            return 'Error: not enough good keypoints - filter 1'
+        # if not isinstance(self.descriptors1, np.ndarray):
+        #     return 'Error: not enough good keypoints - filter 1'
         
 
         # print(self.descriptors1)
@@ -81,9 +114,13 @@ class IssSpeed:
             xDiff = coordinates[0][0] - coordinates[1][0]
             yDiff = coordinates[0][1] - coordinates[1][1]
 
+            
+
             distance = math.hypot(xDiff, yDiff)
             distanceList.append(distance)
 
+            # print(f"x1: {coordinates[0][0]}, x2: {coordinates[1][0]}, y1 {coordinates[0][1]}, y2 {coordinates[1][1]},,, xDiff {xDiff}, yDiff {yDiff}, distance: {distance}")
+            
             allDistances = allDistances + distance
 
 
@@ -115,10 +152,10 @@ class IssSpeed:
         filteredDistances = []
 
         # count first st. dev
-        standardDeviation, avg = self.countStDev(self.selectedDistanceList)
+        standardDeviation, avg = self.countStDev(distanceList)
 
         # filter numbers
-        for number in self.selectedDistanceList:
+        for number in distanceList:
             if abs(avg - number) < standardDeviation:
                 filteredDistances.append(number)
 
@@ -133,6 +170,11 @@ class IssSpeed:
 
         # FILTER
 
+        if self.filteredStandardDeviation > 100:
+            return 'Filter: high deviation'
+
+        if self.largestGroupPercentage < 0.40:
+            return 'Filter: low angle group percentage'
 
 
 
@@ -201,6 +243,10 @@ class IssSpeed:
 
 
     def countStDev(self, numbers):
+        if len(numbers) == 0:
+            return False, False
+        
+
         avg = math.fsum(numbers) / len(numbers)
         squareSum = 0
 
@@ -230,19 +276,20 @@ class IssSpeed:
 
 
         responseMedian = statistics.median(responseList)
-        avgKpResponse = responseSum / len(keypoints)
-        maxKpResponse = max(responseList)
+        self.avgKpResponse = responseSum / len(keypoints)
+        self.maxKpResponse = max(responseList)
 
 
-        print('XXXXXXXXXXXXXXX')
-        print(responseMedian)
-        print(avgKpResponse)
-        print(len(keypoints))
+        # print('XXXXXXXXXXXXXXX')
+        # print(responseMedian)
+        # print(self.avgKpResponse)
+        # print(len(keypoints))
 
 
         # low response
         if responseMedian < 0.00005:
-            return False
+            # return False
+            ''
 
 
         # select good kp
@@ -253,7 +300,6 @@ class IssSpeed:
             responseNum += 1
         
 
-        print(len(filteredDesc))
         filteredDesc = np.array(filteredDesc)
 
 
