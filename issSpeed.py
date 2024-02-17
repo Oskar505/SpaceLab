@@ -1,33 +1,22 @@
-from importlib.abc import ResourceLoader
 from exif import Image
 from datetime import datetime
 import cv2
 import math
 import numpy as np
 import statistics
+import logzero
+from logzero import logger
 
-# test
-import os
+
+
+logzero.logfile('logs.log')
+
 
 
 class IssSpeed:
     def __init__(self, img1, img2):
         self.img1 = img1
         self.img2 = img2
-
-    def getAllExif(self):
-        from PIL import Image
-
-        # Otevřít obrázek
-        with open(self.img1, 'rb') as imageFile:
-            imgObj = Image.open(imageFile)
-
-            # Získat EXIF data
-            exif_data = imgObj.getexif()
-
-            # Vypsat všechna EXIF data
-            for tag, value in exif_data.items():
-                print(f"Tag: {tag}, Value: {value}")
 
 
     def calculateSpeed(self, featureNum=1000, gsd=12648):
@@ -44,6 +33,7 @@ class IssSpeed:
                 time2 = datetime.strptime(timeStr, '%Y:%m:%d %H:%M:%S')
         
         except KeyError:
+            logger.error('Exif data reading error')
             return 'Exif reading error'
 
 
@@ -52,6 +42,7 @@ class IssSpeed:
         self.timeDiff = timeDiff.seconds
 
         if self.timeDiff == 0:
+            logger.error("Time difference error: time difference can't be 0")
             return "Time difference error: time difference can't be 0"
 
 
@@ -64,6 +55,7 @@ class IssSpeed:
         height2, width2 = self.img2Cv.shape
 
         if width1 != 4056 or width2 != 4056 or height1 != 3040 or height2 != 3040:
+            logger.error('Image resolution error')
             return 'Image resolution error'
 
 
@@ -171,9 +163,11 @@ class IssSpeed:
         # FILTER
 
         if self.filteredStandardDeviation > 100:
+            logger.warn('Filter: high deviation')
             return 'Filter: high deviation'
 
         if self.largestGroupPercentage < 0.40:
+            logger.warn('Filter: low angle group percentage')
             return 'Filter: low angle group percentage'
 
 
