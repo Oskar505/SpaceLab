@@ -19,7 +19,7 @@ class IssSpeed:
         self.img2 = img2
 
 
-    def calculateSpeed(self, featureNum=1000, gsd=12648):
+    def calculateSpeed(self, featureNum=1000, gsd=12927):
         # get time data
         try:
             with open(self.img1, 'rb') as imageFile:
@@ -144,7 +144,7 @@ class IssSpeed:
         filteredDistances = []
 
         # count first st. dev
-        standardDeviation, avg = self.countStDev(distanceList)
+        standardDeviation, avg = self.countStDev(self.selectedDistanceList)
 
         # filter numbers
         for number in distanceList:
@@ -156,23 +156,35 @@ class IssSpeed:
         self.filteredStandardDeviation, self.filteredAvg = self.countStDev(filteredDistances)
 
     
-        realDistance = self.distance * gsd / 100000 # distance px * gsd (px to cm) / 100 000 (cm to km)
+        realDistance = self.filteredAvg * gsd / 100000 # distance px * gsd (px to cm) / 100 000 (cm to km)
         self.speed = realDistance / self.timeDiff
 
 
         # FILTER
+        if self.filteredStandardDeviation < 80 and self.largestGroupPercentage >= 0.40:
+            return self.speed
+        
+        # ok quality
+        elif self.filteredStandardDeviation <= 120 and self.largestGroupPercentage > 0.25:
+            logger.warn('Filter ok: high deviation')
+            return 'Filter ok: high deviation'
+        
+        else: #self.filteredStandardDeviation > 120:  bad quality
+            logger.warn('Filter bad: high deviation')
+            return 'Filter bad: high deviation'
+        
 
-        if self.filteredStandardDeviation > 100:
-            logger.warn('Filter: high deviation')
-            return 'Filter: high deviation'
+        # if self.largestGroupPercentage < 0.40 and self.largestGroupPercentage > 0.25:
+        #     logger.warn('Filter ok: low angle group percentage')
+        #     return 'Filter ok: low angle group percentage'
+        
+        # elif self.largestGroupPercentage < 0.40:
+        #     logger.warn('Filter bad: low angle group percentage')
+        #     return 'Filter bad: low angle group percentage'
 
-        if self.largestGroupPercentage < 0.40:
-            logger.warn('Filter: low angle group percentage')
-            return 'Filter: low angle group percentage'
 
 
-
-        return self.speed
+        # return self.speed
 
     
 

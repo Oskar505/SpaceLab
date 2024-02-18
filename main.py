@@ -78,23 +78,30 @@ def countData(imgNum, imgPath, lastImgPath):
 
     # Error
     if isinstance(speed, str):
-        print(speed) # print error
-        return False
+        if 'Filter ok' in speed: # if the result isn't good but isn't bad either
+            speed = imgPair.speed
+            return {'speed':speed, 'okSpeed':True, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId, 'standardDeviation':imgPair.filteredStandardDeviation, 'angleMedianPercentage':imgPair.largestGroupPercentage, 'avgResponse':imgPair.avgKpResponse, 'maxResponse':imgPair.maxKpResponse}
+
+        else:
+            print(speed) # print error
+            return False
     
     
     # Ok
     else:
-        return {'speed':speed, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId, 'standardDeviation':imgPair.filteredStandardDeviation, 'angleMedianPercentage':imgPair.largestGroupPercentage, 'avgResponse':imgPair.avgKpResponse, 'maxResponse':imgPair.maxKpResponse}
+        return {'speed':speed, 'okSpeed':False, 'img1':lastImgPath, 'img2':imgPath, 'pairId':pairId, 'standardDeviation':imgPair.filteredStandardDeviation, 'angleMedianPercentage':imgPair.largestGroupPercentage, 'avgResponse':imgPair.avgKpResponse, 'maxResponse':imgPair.maxKpResponse}
 
 
 
 # DEFINE VARIABLES
 logger.info('start')
 speedsList = []
+okSpeedsList = []
 testImages = []
 startTime = datetime.now()
 index = 0
 imgList = loadPhotos() # test
+goodResultsCount = 0
 
 
 
@@ -126,15 +133,43 @@ while datetime.now() < startTime + timedelta(minutes=10):
     # Process data if there is not an error
     if result != False:
         # for debug log
-        speedsList.append(result['speed'])
 
-        # count average
-        averageSpeed = sum(speedsList) / len(speedsList) 
+        # result is only ok
+        if result['okSpeed']:
+            okSpeedsList.append(result['speed'])
 
-        # log
-        logger.info(f"Result: average: {round(averageSpeed, 4)}, speed: {round(result['speed'], 4)}, dev: {round(result['standardDeviation'], 4)}, agmp: {round(result['angleMedianPercentage'], 4)}, avgResp: {round(result['avgResponse'], 4)}, maxResp: {round(result['maxResponse'], 4)}")
+            # count average
+            okAverageSpeed = sum(speedsList) / len(speedsList) 
+
+            # log
+            logger.info(f"OK Result: average: {round(okAverageSpeed, 4)}, speed: {round(result['speed'], 4)}, dev: {round(result['standardDeviation'], 4)}, agmp: {round(result['angleMedianPercentage'], 4)}, avgResp: {round(result['avgResponse'], 4)}, maxResp: {round(result['maxResponse'], 4)}")
+
+            # if there are no good results save the ok results
+            if goodResultsCount == 0:
+                with open('result.txt', 'w', buffering=1) as file:
+                    file.write(str(round(okAverageSpeed, 4)))
 
 
-        # save result
-        with open('result.txt', 'w', buffering=1) as file:
-            file.write(str(round(averageSpeed, 4)))
+
+
+        # result is good
+        else:
+            speedsList.append(result['speed'])
+
+
+            # count average
+            averageSpeed = sum(speedsList) / len(speedsList) 
+
+            # log
+            logger.info(f"Result: average: {round(averageSpeed, 4)}, speed: {round(result['speed'], 4)}, dev: {round(result['standardDeviation'], 4)}, agmp: {round(result['angleMedianPercentage'], 4)}, avgResp: {round(result['avgResponse'], 4)}, maxResp: {round(result['maxResponse'], 4)}")
+
+
+            # save result
+            with open('result.txt', 'w', buffering=1) as file:
+                file.write(str(round(averageSpeed, 4)))
+            
+
+            goodResultsCount += 1
+
+
+
