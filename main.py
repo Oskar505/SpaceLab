@@ -41,6 +41,28 @@ def takePhoto(imgList, index):
     logger.info(f'photo taken, index: {index}')
 
     return imgList[index]
+
+
+def takePhotoRpi(index):
+    from picamera import PiCamera
+
+
+    cam = PiCamera()
+    cam.resolution = (4056, 3040)
+
+    location = f'img/image{index}.jpg'
+
+    try:
+        cam.capture(location)
+    
+    except Exception as e:
+        logger.error(e)
+
+
+    logger.info(f'photo taken, index: {index}')
+
+
+    return imgList[index]
     
 
 
@@ -50,6 +72,7 @@ def countData(imgNum, imgPath, lastImgPath):
 
     # get speed
     imgPair = IssSpeed(lastImgPath, imgPath)
+    logger.info(f'Comparing images: {lastImgPath} and {imgPath}')
     speed = imgPair.calculateSpeed()
 
 
@@ -76,17 +99,17 @@ imgList = loadPhotos() # test
 
 
 # MAIN PART - take two photos, count speed, save data
-while datetime.now() < startTime + timedelta(minutes=1):
+while datetime.now() < startTime + timedelta(minutes=10):
     # Take photos
 
     if index == 0:
         img1 = takePhoto(imgList, index)
         index += 1
-        sleep(5)
+        # sleep(5)
 
     else:
         img1 = img2
-        sleep(5)
+        # sleep(5)
 
     
 
