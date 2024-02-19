@@ -81,6 +81,10 @@ class IssSpeed:
         matches = bruteForce.match(self.descriptors1, self.descriptors2)
         self.matches = sorted(matches, key=lambda x: x.distance)
 
+        if len(self.matches) == 0:
+            logger.error('0 matches')
+            return False
+
 
         # get coordinates
         self.coordinates1 = []
@@ -132,10 +136,19 @@ class IssSpeed:
 
         # ANGLES
         self.largestGroup = max(self.angleData.items(), key=lambda x: x[1]['count'])
+
+        if self.largestGroup[1]['count'] == 0:
+            logger.error('largest angle group is 0')
+            return False
+
         self.largestGroupPercentage = (self.largestGroup[1]['count'] / len(self.matches)) # 1 = 100%
         self.angleSelectedDist = self.largestGroup[1]['totalDist'] / self.largestGroup[1]['count'] # distance
         self.selectedDistanceList = self.largestGroup[1]['distanceList']
 
+
+        if len(mergedCoordinates) == 0:
+            logger.error('mergedCoordinates length is 0')
+            return False
 
         self.distance = allDistances / len(mergedCoordinates)
 
@@ -174,21 +187,9 @@ class IssSpeed:
             return 'Filter bad: high deviation'
         
 
-        # if self.largestGroupPercentage < 0.40 and self.largestGroupPercentage > 0.25:
-        #     logger.warn('Filter ok: low angle group percentage')
-        #     return 'Filter ok: low angle group percentage'
-        
-        # elif self.largestGroupPercentage < 0.40:
-        #     logger.warn('Filter bad: low angle group percentage')
-        #     return 'Filter bad: low angle group percentage'
-
-
-
-        # return self.speed
-
     
 
-
+    # not for filters
     def calculateUnusablePercentage(self, debug=False):
         # 4056 x 3040 = 12 330 240
 
@@ -237,19 +238,12 @@ class IssSpeed:
         return (self.clouds, self.water)
 
 
-
-    
-    def displayMatches(self):
-        matchImg = cv2.drawMatches(self.img1Cv, self.keypoints1, self.img2Cv, self.keypoints2, self.matches[:100], None)
-        resize = cv2.resize(matchImg, (1600, 600), interpolation = cv2.INTER_AREA)
-        cv2.imshow('matches', resize)
-        cv2.waitKey(0)
-        cv2.destroyWindow('matches')
         
 
 
     def countStDev(self, numbers):
         if len(numbers) == 0:
+            logger.error("length of numbers list in countStDev can't be 0")
             return False, False
         
 
@@ -271,6 +265,11 @@ class IssSpeed:
 
 
     def filterKeypoints(self, keypoints, descriptors):
+        if len(keypoints) == 0:
+            logger.error('0 keypoints given in filterKeypoints')
+            return False
+
+
         responseSum = 0
         responseList = []
         filteredDesc = []
@@ -284,12 +283,6 @@ class IssSpeed:
         responseMedian = statistics.median(responseList)
         self.avgKpResponse = responseSum / len(keypoints)
         self.maxKpResponse = max(responseList)
-
-
-        # print('XXXXXXXXXXXXXXX')
-        # print(responseMedian)
-        # print(self.avgKpResponse)
-        # print(len(keypoints))
 
 
         # low response
@@ -315,16 +308,3 @@ class IssSpeed:
         
         else:
             return False
-                
-
-
-
-# imgPair1 = IssSpeed('test/img3.jpg', 'test/img4.jpg')
-# imgPair1.getTimeDifference()
-# imgPair1.getKeypoints()
-# imgPair1.calculateDist()
-# imgPair1.calculateSpeed()
-
-# print(imgPair1.speed)
-
-# imgPair1.displayMatches()
